@@ -219,7 +219,7 @@ func InitMerger() (err error) {
 	)
 
 	merger = &Merger{
-		roomWorkers: make([]*MergeWorker, G_config.MergerWorkerCount),
+		roomWorkers: make([]*MergeWorker, G_config.MergerWorkerCount), // "消息合并协程的数量": "消息合并与json编码耗费CPU, 注意一个房间的消息只会由同一个协程处理." "MergerWorkerCount": 32
 	}
 	for workerIdx = 0; workerIdx < G_config.MergerWorkerCount; workerIdx++ {
 		merger.roomWorkers[workerIdx] = initMergeWorker(common.PUSH_TYPE_ROOM)
