@@ -6,15 +6,15 @@ import (
 )
 
 type PushJob struct {
-	pushType int // 推送类型
-	roomId string // 房间ID
-	items []json.RawMessage	 // 要推送的消息数组
+	pushType int               // 推送类型
+	roomId   string            // 房间ID
+	items    []json.RawMessage // 要推送的消息数组
 }
 
 type GateConnMgr struct {
-	gateConns []*GateConn	// 到所有gateway的连接数组
-	pendingChan []chan byte  // gateway的并发请求控制
-	dispatchChan chan*PushJob // 待分发的推送
+	gateConns    []*GateConn   // 到所有gateway的连接数组
+	pendingChan  []chan byte   // gateway的并发请求控制
+	dispatchChan chan *PushJob // 待分发的推送
 }
 
 var (
@@ -30,20 +30,20 @@ func (gateConnMgr *GateConnMgr) doPush(gatewayIdx int, pushJob *PushJob, itemsJs
 	}
 
 	// 释放名额
-	<- gateConnMgr.pendingChan[gatewayIdx]
+	<-gateConnMgr.pendingChan[gatewayIdx]
 }
 
 // 消息分发协程
-func (gateConnMgr* GateConnMgr) dispatchWorkerMain(dispatchWorkerIdx int) {
+func (gateConnMgr *GateConnMgr) dispatchWorkerMain(dispatchWorkerIdx int) {
 	var (
-		pushJob *PushJob
+		pushJob    *PushJob
 		gatewayIdx int
-		itemsJson []byte
-		err error
+		itemsJson  []byte
+		err        error
 	)
 	for {
 		select {
-		case pushJob = <- gateConnMgr.dispatchChan:
+		case pushJob = <-gateConnMgr.dispatchChan:
 			// 序列化
 			if itemsJson, err = json.Marshal(pushJob.items); err != nil {
 				continue
@@ -51,9 +51,10 @@ func (gateConnMgr* GateConnMgr) dispatchWorkerMain(dispatchWorkerIdx int) {
 			// 分发到所有gateway
 			for gatewayIdx = 0; gatewayIdx < len(gateConnMgr.gateConns); gatewayIdx++ {
 				select {
-				case gateConnMgr.pendingChan[gatewayIdx] <- 1:	// 并发控制
+				case gateConnMgr.pendingChan[gatewayIdx] <- 1: // 并发控制
+					//发到每个网关？
 					go gateConnMgr.doPush(gatewayIdx, pushJob, itemsJson)
-				default:	// 并发已满, 直接丢弃
+				default: // 并发已满, 直接丢弃
 				}
 			}
 		}
@@ -62,25 +63,25 @@ func (gateConnMgr* GateConnMgr) dispatchWorkerMain(dispatchWorkerIdx int) {
 
 func InitGateConnMgr() (err error) {
 	var (
-		gatewayIdx int
+		gatewayIdx        int
 		dispatchWorkerIdx int
-		gatewayConfig GatewayConfig
-		gateConnMgr *GateConnMgr
+		gatewayConfig     GatewayConfig
+		gateConnMgr       *GateConnMgr
 	)
 
 	gateConnMgr = &GateConnMgr{
-		gateConns: make([]*GateConn, len(G_config.GatewayList)),
-		pendingChan: make([]chan byte, len(G_config.GatewayList)),
-		dispatchChan: make(chan*PushJob, G_config.GatewayDispatchChannelSize),
+		gateConns:    make([]*GateConn, len(G_config.GatewayList)), // 数量和网关数量一致
+		pendingChan:  make([]chan byte, len(G_config.GatewayList)),
+		dispatchChan: make(chan *PushJob, G_config.GatewayDispatchChannelSize), // "待分发消息队列长度": "分发本身很快, 队列不需要太大" "gatewayDispatchChannelSize": 100000
 	}
 
 	for gatewayIdx, gatewayConfig = range G_config.GatewayList {
 		if gateConnMgr.gateConns[gatewayIdx], err = InitGateConn(&gatewayConfig); err != nil {
 			return
 		}
-		gateConnMgr.pendingChan[gatewayIdx] = make(chan byte, G_config.GatewayMaxPendingCount)
+		gateConnMgr.pendingChan[gatewayIdx] = make(chan byte, G_config.GatewayMaxPendingCount) // "每个网关的最大拥塞推送数": "当消息拥塞时, 后续发往该网关的消息将被丢弃" "gatewayMaxPendingCount": 200000
 	}
-
+	// 按cpu数量 开启 消息分发协程
 	for dispatchWorkerIdx = 0; dispatchWorkerIdx < G_config.GatewayDispatchWorkerCount; dispatchWorkerIdx++ {
 		go gateConnMgr.dispatchWorkerMain(dispatchWorkerIdx)
 	}
@@ -96,7 +97,7 @@ func (gateConnMgr *GateConnMgr) PushAll(items []json.RawMessage) (err error) {
 
 	pushJob = &PushJob{
 		pushType: common.PUSH_TYPE_ALL,
-		items: items,
+		items:    items,
 	}
 
 	select {
@@ -116,8 +117,8 @@ func (gateConnMgr *GateConnMgr) PushRoom(roomId string, items []json.RawMessage)
 
 	pushJob = &PushJob{
 		pushType: common.PUSH_TYPE_ROOM,
-		roomId: roomId,
-		items: items,
+		roomId:   roomId,
+		items:    items,
 	}
 
 	select {

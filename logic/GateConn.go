@@ -26,7 +26,7 @@ func InitGateConn(gatewayConfig *GatewayConfig) (gateConn *GateConn, err error) 
 
 	transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true,},	// 不校验服务端证书
-		MaxIdleConns: G_config.GatewayMaxConnection,
+		MaxIdleConns: G_config.GatewayMaxConnection,// "每个网关的最多并发连接数": "建议与gateway的CPU核数相等, 提升内部通讯吞吐"  "gatewayMaxConnection": 32
 		MaxIdleConnsPerHost: G_config.GatewayMaxConnection,
 		IdleConnTimeout: time.Duration(G_config.GatewayIdleTimeout) * time.Second,	// 连接空闲超时
 	}
